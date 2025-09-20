@@ -78,15 +78,6 @@ jobs:
           npm install
           npm run build
 
-      - name: Create deployment archive
-        run: |
-          tar -czf laravel-app.tar.gz \
-            --exclude=node_modules \
-            --exclude=.git \
-            --exclude=storage/logs/* \
-            --exclude=bootstrap/cache/* \
-            .
-
       - name: Deploy to AWS EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -103,19 +94,25 @@ jobs:
             sudo mkdir -p /var/www/laravel
             cd /var/www/laravel
 
-            # Download and extract new version
-            wget -O laravel-app.tar.gz "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.tar.gz"
-            sudo tar -xzf laravel-app.tar.gz --strip-components=1
-            sudo rm laravel-app.tar.gz
+            # Download and extract new version from GitHub
+            sudo rm -rf /tmp/laravel-deploy
+            mkdir -p /tmp/laravel-deploy
+            cd /tmp/laravel-deploy
+            curl -L -o source.tar.gz "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.tar.gz"
+            tar -xzf source.tar.gz --strip-components=1
+            
+            # Copy to web directory
+            sudo rm -rf /var/www/laravel/*
+            sudo cp -r . /var/www/laravel/
+            cd /var/www/laravel
 
-                      # Set permissions
+            # Set permissions
             sudo chown -R nginx:nginx /var/www/laravel
             sudo chmod -R 755 /var/www/laravel
             sudo chmod -R 775 /var/www/laravel/storage
             sudo chmod -R 775 /var/www/laravel/bootstrap/cache
 
             # Install dependencies
-            cd /var/www/laravel
             sudo -u nginx composer install --no-dev --optimize-autoloader
 
             # Setup environment
@@ -131,3 +128,6 @@ jobs:
             # Restart services
             sudo systemctl restart nginx
             sudo systemctl restart php-fpm
+
+            # Cleanup
+            rm -rf /tmp/laravel-deploy
