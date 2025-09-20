@@ -2,14 +2,14 @@ name: Deploy Laravel to AWS
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    
+
     services:
       mysql:
         image: mysql:8.0
@@ -21,108 +21,108 @@ jobs:
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: 8.2
-        extensions: mbstring, dom, fileinfo, mysql
-        coverage: none
+      - uses: actions/checkout@v4
 
-    - name: Copy environment file
-      run: cp .env.example .env
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
+          extensions: mbstring, dom, fileinfo, mysql
+          coverage: none
 
-    - name: Install Composer dependencies
-      run: composer install --no-dev --optimize-autoloader
+      - name: Copy environment file
+        run: cp .env.example .env
 
-    - name: Generate application key
-      run: php artisan key:generate
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader
 
-    - name: Run database migrations
-      run: php artisan migrate --force
-      env:
-        DB_CONNECTION: mysql
-        DB_HOST: 127.0.0.1
-        DB_PORT: 3306
-        DB_DATABASE: testing
-        DB_USERNAME: root
-        DB_PASSWORD: password
+      - name: Generate application key
+        run: php artisan key:generate
 
-    - name: Run tests
-      run: php artisan test
+      - name: Run database migrations
+        run: php artisan migrate --force
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: testing
+          DB_USERNAME: root
+          DB_PASSWORD: password
+
+      - name: Run tests
+        run: php artisan test
 
   deploy:
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    
+
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: 8.2
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.2
 
-    - name: Install Composer dependencies
-      run: composer install --no-dev --optimize-autoloader
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader
 
-    - name: Build frontend assets
-      run: |
-        npm ci
-        npm run build
+      - name: Build frontend assets
+        run: |
+          npm ci
+          npm run build
 
-    - name: Create deployment archive
-      run: |
-        tar -czf laravel-app.tar.gz \
-          --exclude=node_modules \
-          --exclude=.git \
-          --exclude=storage/logs/* \
-          --exclude=bootstrap/cache/* \
-          .
+      - name: Create deployment archive
+        run: |
+          tar -czf laravel-app.tar.gz \
+            --exclude=node_modules \
+            --exclude=.git \
+            --exclude=storage/logs/* \
+            --exclude=bootstrap/cache/* \
+            .
 
-    - name: Deploy to AWS EC2
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.AWS_HOST }}
-        username: ${{ secrets.AWS_USERNAME }}
-        key: ${{ secrets.AWS_PRIVATE_KEY }}
-        port: 22
-        script: |
-          # Backup current deployment
-          sudo mkdir -p /var/backups/laravel
-          sudo cp -r /var/www/laravel /var/backups/laravel/$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
-          
-          # Create app directory
-          sudo mkdir -p /var/www/laravel
-          cd /var/www/laravel
-          
-          # Download and extract new version
-          wget -O laravel-app.tar.gz "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.tar.gz"
-          sudo tar -xzf laravel-app.tar.gz --strip-components=1
-          sudo rm laravel-app.tar.gz
-          
-                    # Set permissions
-          sudo chown -R nginx:nginx /var/www/laravel
-          sudo chmod -R 755 /var/www/laravel
-          sudo chmod -R 775 /var/www/laravel/storage
-          sudo chmod -R 775 /var/www/laravel/bootstrap/cache
-          
-          # Install dependencies
-          cd /var/www/laravel
-          sudo -u nginx composer install --no-dev --optimize-autoloader
-          
-          # Setup environment
-          sudo -u nginx cp .env.production.example .env 2>/dev/null || echo "Warning: .env.production.example not found"
-          sudo -u nginx php artisan key:generate --force
-          
-          # Database operations
-          sudo -u nginx php artisan migrate --force
-          sudo -u nginx php artisan config:cache
-          sudo -u nginx php artisan route:cache
-          sudo -u nginx php artisan view:cache
-          
-          # Restart services
-          sudo systemctl restart nginx
-          sudo systemctl restart php-fpm
+      - name: Deploy to AWS EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.AWS_HOST }}
+          username: ${{ secrets.AWS_USERNAME }}
+          key: ${{ secrets.AWS_PRIVATE_KEY }}
+          port: 22
+          script: |
+            # Backup current deployment
+            sudo mkdir -p /var/backups/laravel
+            sudo cp -r /var/www/laravel /var/backups/laravel/$(date +%Y%m%d_%H%M%S) 2>/dev/null || true
+
+            # Create app directory
+            sudo mkdir -p /var/www/laravel
+            cd /var/www/laravel
+
+            # Download and extract new version
+            wget -O laravel-app.tar.gz "https://github.com/${{ github.repository }}/archive/${{ github.sha }}.tar.gz"
+            sudo tar -xzf laravel-app.tar.gz --strip-components=1
+            sudo rm laravel-app.tar.gz
+
+                      # Set permissions
+            sudo chown -R nginx:nginx /var/www/laravel
+            sudo chmod -R 755 /var/www/laravel
+            sudo chmod -R 775 /var/www/laravel/storage
+            sudo chmod -R 775 /var/www/laravel/bootstrap/cache
+
+            # Install dependencies
+            cd /var/www/laravel
+            sudo -u nginx composer install --no-dev --optimize-autoloader
+
+            # Setup environment
+            sudo -u nginx cp .env.production.example .env 2>/dev/null || echo "Warning: .env.production.example not found"
+            sudo -u nginx php artisan key:generate --force
+
+            # Database operations
+            sudo -u nginx php artisan migrate --force
+            sudo -u nginx php artisan config:cache
+            sudo -u nginx php artisan route:cache
+            sudo -u nginx php artisan view:cache
+
+            # Restart services
+            sudo systemctl restart nginx
+            sudo systemctl restart php-fpm
