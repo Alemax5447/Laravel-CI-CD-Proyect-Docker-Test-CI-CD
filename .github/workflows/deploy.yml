@@ -50,7 +50,7 @@ jobs:
           DB_PASSWORD: password
 
       - name: Run tests
-        run: php artisan test
+        run: ./vendor/bin/phpunit
 
   deploy:
     needs: test
