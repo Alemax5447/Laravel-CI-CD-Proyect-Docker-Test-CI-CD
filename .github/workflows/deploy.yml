@@ -103,26 +103,26 @@ jobs:
           sudo tar -xzf laravel-app.tar.gz --strip-components=1
           sudo rm laravel-app.tar.gz
           
-          # Set permissions
-          sudo chown -R www-data:www-data /var/www/laravel
+                    # Set permissions
+          sudo chown -R nginx:nginx /var/www/laravel
           sudo chmod -R 755 /var/www/laravel
           sudo chmod -R 775 /var/www/laravel/storage
           sudo chmod -R 775 /var/www/laravel/bootstrap/cache
           
           # Install dependencies
           cd /var/www/laravel
-          sudo -u www-data composer install --no-dev --optimize-autoloader
+          sudo -u nginx composer install --no-dev --optimize-autoloader
           
           # Setup environment
-          sudo -u www-data cp .env.production .env 2>/dev/null || echo "Warning: .env.production not found"
-          sudo -u www-data php artisan key:generate --force
+          sudo -u nginx cp .env.production.example .env 2>/dev/null || echo "Warning: .env.production.example not found"
+          sudo -u nginx php artisan key:generate --force
           
           # Database operations
-          sudo -u www-data php artisan migrate --force
-          sudo -u www-data php artisan config:cache
-          sudo -u www-data php artisan route:cache
-          sudo -u www-data php artisan view:cache
+          sudo -u nginx php artisan migrate --force
+          sudo -u nginx php artisan config:cache
+          sudo -u nginx php artisan route:cache
+          sudo -u nginx php artisan view:cache
           
           # Restart services
           sudo systemctl restart nginx
-          sudo systemctl restart php8.2-fpm
+          sudo systemctl restart php-fpm
